@@ -27,7 +27,7 @@ export class BlastRadiusMCPServer {
       this.builder.getParser().getProject(),
       this.builder.getGraph()
     );
-    this.patchManager = new PatchManager();
+    this.patchManager = new PatchManager(this.projectRoot);
 
     this.server = new Server(
       {

@@ -6,12 +6,13 @@ import { ProjectGraph } from '@blast-radius/core';
 import { AgentCoordinator } from '@blast-radius/core';
 import type { PolicyConfig, HookInspectionRequest } from '@blast-radius/core';
 
-// 1. Recursion Guard
-if (process.env.BLAST_RADIUS_INSPECTION === '1') {
-  // Already in an inspection sub-process; allow to avoid recursion
+// 1. Recursion Guard (tied to current process PID)
+const currentPid = String(process.pid);
+if (process.env.BLAST_RADIUS_INSPECTION_PID === currentPid) {
+  // Already in an inspection sub-process for this process; exit cleanly
   process.exit(0);
 }
-process.env.BLAST_RADIUS_INSPECTION = '1';
+process.env.BLAST_RADIUS_INSPECTION_PID = currentPid;
 
 // Default policy
 const defaultPolicy: PolicyConfig = {

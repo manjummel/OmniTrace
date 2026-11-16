@@ -51,15 +51,40 @@ export class BlastRadiusServer {
       this.builder.getParser().getProject(),
       this.builder.getGraph()
     );
-    this.patchManager = new PatchManager();
+    this.patchManager = new PatchManager(this.projectRoot);
     this.watcher = new FileWatcher(this.builder, this.projectRoot);
 
     this.app = express();
-    this.app.use(cors());
+
+    // Restrict CORS to localhost/127.0.0.1 origins
+    const allowedOriginRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+    this.app.use(
+      cors({
+        origin: (origin, callback) => {
+          // Allow requests with no origin (like curl, desktop apps, server-to-server)
+          if (!origin || allowedOriginRegex.test(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error('Blocked by CORS policy: Untrusted origin.'));
+          }
+        },
+        credentials: true
+      })
+    );
     this.app.use(express.json());
 
     this.httpServer = createServer(this.app);
-    this.wss = new WebSocketServer({ server: this.httpServer });
+    this.wss = new WebSocketServer({
+      server: this.httpServer,
+      verifyClient: (info, callback) => {
+        const origin = info.origin || info.req.headers.origin;
+        if (!origin || allowedOriginRegex.test(origin)) {
+          callback(true);
+        } else {
+          callback(false, 403, 'Forbidden: Untrusted WebSocket Origin');
+        }
+      }
+    });
 
     this.setupRoutes();
     this.setupWebSocket();
