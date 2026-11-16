@@ -21,12 +21,40 @@ export interface RollbackSnapshot {
 export class PatchManager {
   private rollbackSnapshots: Map<string, RollbackSnapshot> = new Map();
   private dismissedFindings: Map<string, { reason: string; timestamp: number }> = new Map();
+  private projectRoot: string;
+
+  constructor(projectRoot: string = process.cwd()) {
+    this.projectRoot = path.resolve(projectRoot);
+  }
+
+  /**
+   * Validates and resolves a file path against project root to prevent path traversal
+   */
+  public resolveSafePath(filePath: string): string {
+    const resolved = path.resolve(this.projectRoot, filePath);
+    const normalizedRoot = path.normalize(this.projectRoot);
+    const normalizedTarget = path.normalize(resolved);
+    
+    // Target must be inside projectRoot (or be the project root itself)
+    if (normalizedTarget !== normalizedRoot && !normalizedTarget.startsWith(normalizedRoot + path.sep)) {
+      throw new Error(`Security violation: Access to path '${filePath}' outside project root is forbidden.`);
+    }
+    return normalizedTarget;
+  }
 
   /**
    * Generates a proposed fix patch for a given finding
    */
   public generateFix(finding: Finding, fileContent?: string): ProposedPatch | null {
-    const rawContent = fileContent ?? (fs.existsSync(finding.filePath) ? fs.readFileSync(finding.filePath, 'utf8') : null);
+    let rawContent = fileContent;
+    if (rawContent === undefined) {
+      try {
+        const safePath = this.resolveSafePath(finding.filePath);
+        rawContent = fs.existsSync(safePath) ? fs.readFileSync(safePath, 'utf8') : null;
+      } catch {
+        return null;
+      }
+    }
     if (!rawContent) return null;
 
     let modifiedContent = rawContent;
@@ -107,17 +135,18 @@ export class PatchManager {
    */
   public applyPatch(patch: ProposedPatch): { success: boolean; rollbackId: string; error?: string } {
     try {
+      const safePath = this.resolveSafePath(patch.filePath);
       const rollbackId = `rb_${patch.findingId}_${Date.now()}`;
       
       // Save rollback snapshot
       this.rollbackSnapshots.set(rollbackId, {
         patchId: rollbackId,
-        filePath: patch.filePath,
+        filePath: safePath,
         content: patch.oldContent,
         timestamp: Date.now()
       });
 
-      fs.writeFileSync(patch.filePath, patch.newContent, 'utf8');
+      fs.writeFileSync(safePath, patch.newContent, 'utf8');
       return { success: true, rollbackId };
     } catch (err: any) {
       return { success: false, rollbackId: '', error: err.message };
@@ -132,7 +161,8 @@ export class PatchManager {
     if (!snapshot) return false;
 
     try {
-      fs.writeFileSync(snapshot.filePath, snapshot.content, 'utf8');
+      const safePath = this.resolveSafePath(snapshot.filePath);
+      fs.writeFileSync(safePath, snapshot.content, 'utf8');
       this.rollbackSnapshots.delete(rollbackId);
       return true;
     } catch {

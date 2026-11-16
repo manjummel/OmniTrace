@@ -50,5 +50,26 @@ describe('Milestone 5: Patch Manager & Findings Remediation', () => {
     expect(manager.getDismissalReason('finding-123')).toBe('False positive in benchmark file');
     expect(manager.isDismissed('finding-999')).toBe(false);
   });
+
+  it('should prevent path traversal attempts outside projectRoot', () => {
+    const manager = new PatchManager(process.cwd());
+
+    expect(() => {
+      manager.resolveSafePath('../../etc/passwd');
+    }).toThrow(/Access to path '.*' outside project root is forbidden/);
+
+    const traversalPatch = {
+      findingId: 'fnd-traversal',
+      filePath: '../../evil.sh',
+      oldContent: '',
+      newContent: 'malicious payload',
+      diffSummary: 'attack',
+      timestamp: Date.now()
+    };
+
+    const res = manager.applyPatch(traversalPatch);
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/outside project root is forbidden/);
+  });
 });
 

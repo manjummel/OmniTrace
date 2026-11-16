@@ -91,19 +91,23 @@ export class HardcodeHunterAgent {
     const text = sourceFile.getFullText();
     const lines = text.split('\n');
 
-    // 1. Regex pattern check across all lines
+    // 1. Regex pattern check across all lines (with line-length guard for ReDoS)
+    const MAX_LINE_LENGTH = 2048;
     lines.forEach((lineText, idx) => {
       const lineNum = idx + 1;
+
+      // Skip excessively long lines (e.g. minified bundles, data URLs) to avoid ReDoS
+      const lineToCheck = lineText.length > MAX_LINE_LENGTH ? lineText.slice(0, MAX_LINE_LENGTH) : lineText;
 
       for (const pattern of this.patterns) {
         // Reset regex state
         pattern.regex.lastIndex = 0;
         let match: RegExpExecArray | null;
 
-        while ((match = pattern.regex.exec(lineText)) !== null) {
+        while ((match = pattern.regex.exec(lineToCheck)) !== null) {
           const matchedSecret = match[0];
           const redacted = this.maskSecret(matchedSecret);
-          const safeEvidence = lineText.replace(matchedSecret, redacted).trim();
+          const safeEvidence = lineToCheck.replace(matchedSecret, redacted).trim();
 
           findings.push({
             id: `hh-pattern-${filePath}-${lineNum}-${pattern.name.replace(/\s+/g, '_')}`,
