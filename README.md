@@ -81,11 +81,13 @@ if (report) {
 - **Local-First & Offline**: All AST parsing and dependency calculations run locally in Node.js memory. Raw source code is never uploaded to external servers.
 - **Deterministic**: Prioritizes compiler diagnostics and AST structures over unpredictable LLM guesswork.
 - **Safe Secret Masking**: Credentials detected in source code are automatically redacted in findings, logs, and evidence payloads.
+- **Threat Model & Security Policy**: Detailed vulnerability assessments, attack vector analyses, and proactive mitigations are documented in [SECURITY.md](./SECURITY.md).
 
 ---
 
 ## 📖 Documentation
 
+- [Security Threat Model & Policy](./SECURITY.md)
 - [Product Requirements Document (PRD)](./docs/PRD.md)
 - [Feature Specifications](./docs/FEATURE_SPECIFICATION.md)
 - [Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md)
